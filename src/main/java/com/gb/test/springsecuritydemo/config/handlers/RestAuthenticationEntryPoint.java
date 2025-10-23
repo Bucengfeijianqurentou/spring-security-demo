@@ -1,6 +1,8 @@
 package com.gb.test.springsecuritydemo.config.handlers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gb.test.springsecuritydemo.enums.ResponseCodeEnum; // 导入我们的枚举
+import com.gb.test.springsecuritydemo.model.ResultVO; // 导入我们的 ResultVO
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -11,11 +13,10 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-
+//401处理器
 @Component
 public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
+
 
     @Override
     public void commence(HttpServletRequest request,
@@ -26,12 +27,12 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
 
-        Map<String, Object> errorDetails = new HashMap<>();
-        errorDetails.put("success", false);
-        errorDetails.put("error", "未认证");
-        errorDetails.put("message", "需要认证才能访问此资源: " + authException.getMessage());
-        errorDetails.put("path", request.getRequestURI());
+        // 2. 创建统一的 ResultVO
+        // 注意：我们把异常信息 authException.getMessage() 作为 data 传给了前端，方便调试
+        ResultVO<?> result = ResultVO.fail(ResponseCodeEnum.UNAUTHORIZED.getCode(),
+                authException.getMessage());
 
-        new ObjectMapper().writeValue(response.getWriter(), errorDetails);
+        // 3. 使用 ObjectMapper 将对象序列化为 JSON 字符串并写入响应
+        response.getWriter().write(new ObjectMapper().writeValueAsString(result));
     }
 }

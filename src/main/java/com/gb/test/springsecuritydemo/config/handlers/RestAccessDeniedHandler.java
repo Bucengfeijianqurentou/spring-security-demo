@@ -1,6 +1,8 @@
 package com.gb.test.springsecuritydemo.config.handlers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gb.test.springsecuritydemo.enums.ResponseCodeEnum; // 导入
+import com.gb.test.springsecuritydemo.model.ResultVO; // 导入
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -11,11 +13,10 @@ import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-
+//403处理器
 @Component
 public class RestAccessDeniedHandler implements AccessDeniedHandler {
+
 
     @Override
     public void handle(HttpServletRequest request,
@@ -26,12 +27,11 @@ public class RestAccessDeniedHandler implements AccessDeniedHandler {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
 
-        Map<String, Object> errorDetails = new HashMap<>();
-        errorDetails.put("success", false);
-        errorDetails.put("error", "权限不足");
-        errorDetails.put("message", "你没有权限访问此资源: " + accessDeniedException.getMessage());
-        errorDetails.put("path", request.getRequestURI());
+        // 2. 创建统一的 ResultVO
+        ResultVO<?> result = ResultVO.fail(ResponseCodeEnum.FORBIDDEN.getCode(),
+                accessDeniedException.getMessage());
 
-        new ObjectMapper().writeValue(response.getWriter(), errorDetails);
+        // 3. 序列化并返回
+        response.getWriter().write(new ObjectMapper().writeValueAsString(result));
     }
 }
