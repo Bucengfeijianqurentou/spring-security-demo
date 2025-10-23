@@ -1,12 +1,15 @@
 package com.gb.test.springsecuritydemo.config;
 
 import com.gb.test.springsecuritydemo.config.JwtAuthenticationFilter;
+import com.gb.test.springsecuritydemo.config.handlers.RestAccessDeniedHandler;
+import com.gb.test.springsecuritydemo.config.handlers.RestAuthenticationEntryPoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -18,40 +21,46 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity // (1) 确保这个注解存在
+@EnableMethodSecurity // 开启“方法级安全”
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthFilter; // (2) 只需要注入过滤器
+    private final JwtAuthenticationFilter jwtAuthFilter;
+    private final RestAuthenticationEntryPoint restAuthenticationEntryPoint; // 3. 注入 401 处理器
+    private final RestAccessDeniedHandler restAccessDeniedHandler;         // 4. 注入 403 处理器
 
-    // (3) 在构造函数中只注入你真正需要作为*字段*的 Bean
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter) {
+    // 5. 更新构造函数
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter,
+                          RestAuthenticationEntryPoint restAuthenticationEntryPoint,
+                          RestAccessDeniedHandler restAccessDeniedHandler) {
         this.jwtAuthFilter = jwtAuthFilter;
+        this.restAuthenticationEntryPoint = restAuthenticationEntryPoint;
+        this.restAccessDeniedHandler = restAccessDeniedHandler;
     }
 
-    /**
-     * (4) 核心的安全过滤器链
-     */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, AuthenticationProvider authenticationProvider) throws Exception {
         http
-                .csrf(csrf -> csrf.disable()) // 禁用 CSRF
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // 允许访问登录和注册接口
+                        // 6. 【更新权限规则】
                         .requestMatchers("/api/auth/login").permitAll()
-                        .requestMatchers("/api/auth/register").permitAll() // 假设你也有注册
-                        // 2. 【新添加的规则】放行“热门文章列表”
-                        .requestMatchers("/api/posts/public/list").permitAll()
-                        // 【兜底规则】其他所有请求都需要认证
+                        .requestMatchers("/hello").permitAll() // 假设 /hello 还是公开的
+                        // 7. 【新规则】/api/admin/ 下的所有请求，都必须有 "ADMIN" 角色
+                        // 注意: .hasRole("ADMIN") 会自动寻找 "ROLE_ADMIN"
+                        //.requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        // 8. 其他所有请求都需要登录
                         .anyRequest().authenticated()
                 )
-                // (5) 设置 Session 管理为无状态
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
-                // (6) 关联我们下面定义的 AuthenticationProvider
+                // 9. 【新配置】注册我们的全局异常处理器
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(restAuthenticationEntryPoint) // 配置 401 处理器
+                        .accessDeniedHandler(restAccessDeniedHandler)           // 配置 403 处理器
+                )
                 .authenticationProvider(authenticationProvider)
-                // (7) 将 JWT 过滤器添加到链中
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                // 禁用默认登录页
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable());
 
@@ -92,4 +101,11 @@ public class SecurityConfig {
         authProvider.setPasswordEncoder(passwordEncoder);
         return authProvider;
     }
+
+
+    public static void main(String[] args) {
+        String encode = new BCryptPasswordEncoder().encode("123");
+        System.out.println(encode);
+    }
+
 }
