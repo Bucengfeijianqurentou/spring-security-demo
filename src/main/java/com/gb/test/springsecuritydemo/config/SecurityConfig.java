@@ -38,7 +38,9 @@ public class SecurityConfig {
                         // 允许访问登录和注册接口
                         .requestMatchers("/api/auth/login").permitAll()
                         .requestMatchers("/api/auth/register").permitAll() // 假设你也有注册
-                        // 其他所有请求都需要认证
+                        // 2. 【新添加的规则】放行“热门文章列表”
+                        .requestMatchers("/api/posts/public/list").permitAll()
+                        // 【兜底规则】其他所有请求都需要认证
                         .anyRequest().authenticated()
                 )
                 // (5) 设置 Session 管理为无状态
